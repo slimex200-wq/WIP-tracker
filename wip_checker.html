@@ -189,8 +189,6 @@
     .b-yel { background: rgba(255,204,0,.12); color: #9a7b00; }
     .tna-up   { font-size: 10px; color: rgba(255,59,48,.7); }
     .tna-down { font-size: 10px; color: rgba(52,199,89,.7); }
-    .gac-badge { font-size: 10px; color: var(--t3); font-weight: 500; }
-    .gac-warn  { font-size: 10px; color: rgba(255,59,48,.7); font-weight: 500; }
     .today-date { font-size: 12px; color: var(--t2); font-weight: 500; letter-spacing: -0.01em; }
 
     /* CELL CONTENT */
@@ -307,7 +305,7 @@
           <th class="alert-col">!</th>
           <th>STYLE # / DESC</th>
           <th>ENT</th>
-          <th>📦 GAC</th>
+          <th>✂ PLAN CUT DATE</th>
           <th>FIT APPROVAL (FAD)</th>
           <th>PP APPROVAL (PPAD)</th>
           <th>TRIM DUE</th>
@@ -530,11 +528,11 @@ function tnaBadge(diff) {
   return '';
 }
 
-function gacBadge(cutDd) {
-  if (cutDd == null) return '';
-  if (cutDd > 0) return `<span class="gac-badge">D-${cutDd}</span>`;
-  if (cutDd < 0) return `<span class="gac-warn">D+${Math.abs(cutDd)}</span>`;
-  return `<span class="gac-warn">D-day</span>`;
+function cutDayBadge(dd) {
+  if (dd == null) return '<span style="color:var(--t3)">-</span>';
+  if (dd < 0) return `<span style="color:var(--red);font-weight:700;font-size:12px">D+${Math.abs(dd)}</span>`;
+  if (dd === 0) return `<span style="color:var(--red);font-weight:700;font-size:12px">D-day</span>`;
+  return `<span style="color:#00e676;font-weight:700;font-size:12px">D-${dd}</span>`;
 }
 
 function ddColor(dd) {
@@ -665,21 +663,21 @@ function renderTable() {
         </td>
         <td>${r.sizeCodes.length ? r.sizeCodes.map(c => `<span class="entity-tag sz-${c.toLowerCase()}">${c}</span>`).join(' ') : '<span class="entity-tag">-</span>'}</td>
         <td>
-          <div class="dt-main">${fmt(r.gacDate)}</div>
-          <div class="dt-sub">${dBadge(r.gacDd)}</div>
+          <div class="dt-main">${fmt(r.cutDate)}</div>
+          <div class="dt-sub">${cutDayBadge(r.cutDd)}</div>
         </td>
         <td>
           <div class="dt-main">${fmt(r.fadDate)}</div>
-          <div class="dt-sub">${dBadge(r.fadDd)} ${gacBadge(r.gacDd)}</div>
+          <div class="dt-sub">${dBadge(r.fadDd)}</div>
           <div style="margin-top:3px">${r.fitOk ? '<span class="fit-ok">✓ 승인</span>' : '<span class="fit-no">✗ 미승인</span>'}</div>
         </td>
         <td>
           <div class="dt-main">${fmt(r.ppadDate)}</div>
-          <div class="dt-sub">${dBadge(r.ppadDd)} ${gacBadge(r.gacDd)}</div>
+          <div class="dt-sub">${dBadge(r.ppadDd)}</div>
         </td>
         <td>
           <div class="dt-main">${fmt(r.trimDate)}</div>
-          <div class="dt-sub">${dBadge(r.trimDd)} ${gacBadge(r.gacDd)}</div>
+          <div class="dt-sub">${dBadge(r.trimDd)}</div>
           ${r.trimOk ? '<div style="color:var(--grn);font-size:11px;margin-top:2px">✓ 완료</div>' : ''}
         </td>
       </tr>`;
