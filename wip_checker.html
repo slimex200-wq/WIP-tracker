@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WIP Deadline Checker — macOS</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f5f5f7; --surf: #ffffff; --surf2: #f0f0f2; --border: #d2d2d7;
+      --red: #ff3b30; --ora: #ff9500; --yel: #ffcc00;
+      --grn: #34c759; --blu: #007aff; --mag: #af52de;
+      --emr: #50c878;
+      --t1: #1d1d1f; --t2: #6e6e73; --t3: #aeaeb2;
+      --shadow: 0 1px 3px rgba(0,0,0,.08), 0 4px 12px rgba(0,0,0,.04);
+      --shadow-lg: 0 2px 8px rgba(0,0,0,.1), 0 8px 24px rgba(0,0,0,.06);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg); color: var(--t1);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+      font-size: 13px; min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* WINDOW CHROME */
+    .window-chrome {
+      background: linear-gradient(180deg, #e8e8ea 0%, #d6d6d8 100%);
+      padding: 12px 16px; display: flex; align-items: center; gap: 8px;
+      position: sticky; top: 0; z-index: 100;
+      border-bottom: 1px solid #c0c0c2;
+    }
+    .traffic-lights { display: flex; gap: 8px; }
+    .tl {
+      width: 12px; height: 12px; border-radius: 50%;
+      border: 0.5px solid rgba(0,0,0,.12);
+    }
+    .tl-red { background: #ff5f57; }
+    .tl-yel { background: #febc2e; }
+    .tl-grn { background: #28c840; }
+    .window-title {
+      flex: 1; text-align: center; font-size: 13px; font-weight: 600;
+      color: #4d4d4d; letter-spacing: -0.01em;
+    }
+    .window-title .accent { color: var(--blu); }
+
+    /* HEADER BAR */
+    .app-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 20px; background: var(--surf);
+      border-bottom: 1px solid var(--border);
+    }
+    .app-title { display: none; }
+    .header-right { display: flex; align-items: center; gap: 10px; }
+    .file-name { font-size: 11px; color: var(--t3); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .btn {
+      display: none; align-items: center; gap: 4px; padding: 5px 14px;
+      background: var(--surf); border: 1px solid var(--border); color: var(--t2);
+      font-family: inherit; font-size: 12px; cursor: pointer; border-radius: 6px;
+      transition: all 0.15s; font-weight: 500;
+    }
+    .btn:hover { background: var(--surf2); color: var(--t1); }
+    .btn.visible { display: flex; }
+
+    /* UPLOAD ZONE */
+    #upload-zone {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      min-height: calc(100vh - 80px); gap: 20px;
+    }
+    .upload-box {
+      width: 400px; max-width: calc(100vw - 48px); padding: 52px 36px;
+      border: 2px dashed var(--border); border-radius: 16px; text-align: center;
+      cursor: pointer; transition: all 0.2s; user-select: none;
+      background: var(--surf); box-shadow: var(--shadow);
+    }
+    .upload-box:hover, .upload-box.drag-over {
+      border-color: var(--blu); background: rgba(0,122,255,.02);
+      box-shadow: var(--shadow-lg);
+    }
+    .upload-icon { font-size: 40px; margin-bottom: 16px; }
+    .upload-title { font-size: 17px; font-weight: 700; margin-bottom: 8px; color: var(--t1); letter-spacing: -0.02em; }
+    .upload-hint { color: var(--t2); font-size: 12px; line-height: 1.8; }
+    #file-input { display: none; }
+
+    /* DASHBOARD */
+    #dashboard { display: none; }
+
+    /* TNA BAR */
+    .tna-bar {
+      display: flex; gap: 10px; padding: 16px 20px;
+      overflow-x: auto; background: var(--surf);
+      border-bottom: 1px solid var(--border);
+    }
+    .tna-group {
+      flex-shrink: 0; padding: 14px 16px; background: var(--surf2);
+      border-radius: 12px; min-width: 190px;
+    }
+    .tna-ih { font-size: 13px; font-weight: 700; color: var(--blu); letter-spacing: -0.01em; }
+    .tna-count { font-size: 11px; color: var(--t3); margin: 4px 0 10px; }
+    .tna-row { display: flex; align-items: center; gap: 8px; font-size: 11px; margin-bottom: 4px; }
+    .tna-lbl { color: var(--t3); width: 36px; flex-shrink: 0; font-weight: 500; }
+    .tna-dt { color: var(--t2); width: 48px; }
+    .tna-dd { font-size: 11px; font-weight: 600; }
+
+    /* CONTROLS BAR */
+    .controls {
+      display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+      padding: 14px 20px; background: var(--surf);
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* CHIPS */
+    .chip {
+      display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px;
+      border: 1px solid var(--border); border-radius: 20px; font-size: 12px;
+      cursor: pointer; transition: all 0.2s; color: var(--t2); background: var(--surf);
+      font-weight: 500;
+    }
+    .chip:hover { background: var(--surf2); color: var(--t1); }
+    .chip-n { font-weight: 700; }
+    .chip.on-block   { border-color: var(--red); color: var(--red); background: rgba(255,59,48,.06); }
+    .chip.on-urgent  { border-color: #ff4500; color: #ff4500; background: rgba(255,69,0,.06); }
+    .chip.on-fitno   { border-color: var(--ora); color: var(--ora); background: rgba(255,149,0,.06); }
+    .chip.on-trimwarn { border-color: var(--yel); color: #b38f00; background: rgba(255,204,0,.08); }
+
+    /* STATS */
+    .stats-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 10px; padding: 16px 20px; background: var(--surf);
+      border-bottom: 1px solid var(--border);
+    }
+    .stat-card {
+      padding: 14px 16px; background: var(--surf2); border: none;
+      border-radius: 12px; cursor: pointer; transition: all 0.2s;
+    }
+    .stat-card:hover { background: #e8e8ec; }
+    .stat-card.on { box-shadow: inset 0 0 0 2px currentColor; background: rgba(255,255,255,.8); }
+    .stat-lbl { font-size: 11px; color: var(--t2); margin-bottom: 6px; font-weight: 500; }
+    .stat-n { font-weight: 800; font-size: 24px; letter-spacing: -0.03em; }
+
+    /* TABS */
+    .tabs {
+      display: flex; padding: 0 20px; overflow-x: auto;
+      background: var(--surf); border-bottom: 1px solid var(--border);
+    }
+    .tab {
+      display: inline-flex; align-items: center; gap: 6px; padding: 11px 16px;
+      font-size: 12px; color: var(--t2); cursor: pointer; font-weight: 500;
+      border-bottom: 2px solid transparent; white-space: nowrap; transition: all 0.15s;
+    }
+    .tab:hover { color: var(--t1); }
+    .tab.on { color: var(--blu); border-bottom-color: var(--blu); }
+    .tab-n {
+      font-size: 11px; font-weight: 700;
+      padding: 2px 7px; border-radius: 10px; background: var(--surf2); color: var(--t3);
+    }
+    .tab.on .tab-n { background: var(--blu); color: #fff; }
+
+    /* TABLE */
+    .table-wrap { overflow-x: auto; padding: 0; background: var(--surf); }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th {
+      text-align: left; padding: 8px 14px; color: var(--t3); font-weight: 600;
+      font-size: 11px; letter-spacing: 0.02em; text-transform: uppercase;
+      border-bottom: 1px solid var(--border); white-space: nowrap;
+      background: var(--surf2);
+    }
+    td { padding: 10px 14px; border-bottom: 1px solid rgba(210,210,215,.5); vertical-align: top; }
+    tr:hover { background: rgba(0,122,255,.02); }
+    tr.row-block   { background: rgba(0,90,180,.10); border-left: 3px solid #1a5fb4; }
+    tr.row-block:hover { background: rgba(0,90,180,.15); }
+    tr.row-urgent  { background: rgba(0,110,200,.08); border-left: 3px solid #3584e4; }
+    tr.row-urgent:hover { background: rgba(0,110,200,.12); }
+    tr.row-fitno   { background: rgba(0,130,220,.05); border-left: 3px solid #62a0ea; }
+    tr.row-fitno:hover { background: rgba(0,130,220,.09); }
+    tr.row-trimwarn { background: rgba(0,150,240,.04); border-left: 3px solid #99c1f1; }
+    tr.row-trimwarn:hover { background: rgba(0,150,240,.07); }
+
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+    .blink { animation: blink 1.6s ease-in-out infinite; }
+
+    /* BADGES */
+    .badge {
+      display: inline-block; padding: 3px 8px; border-radius: 6px;
+      font-size: 10px; font-weight: 600; white-space: nowrap;
+    }
+    .b-red { background: rgba(255,59,48,.1); color: var(--red); }
+    .b-ora { background: rgba(255,149,0,.1); color: var(--ora); }
+    .b-yel { background: rgba(255,204,0,.12); color: #9a7b00; }
+    .tna-up   { font-size: 10px; color: rgba(255,59,48,.7); }
+    .tna-down { font-size: 10px; color: rgba(52,199,89,.7); }
+    .gac-badge { font-size: 10px; color: var(--t3); font-weight: 500; }
+    .gac-warn  { font-size: 10px; color: rgba(255,59,48,.7); font-weight: 500; }
+    .today-date { font-size: 12px; color: var(--t2); font-weight: 500; letter-spacing: -0.01em; }
+
+    /* CELL CONTENT */
+    .style-no { font-size: 12px; font-weight: 700; white-space: nowrap; letter-spacing: -0.01em; }
+    .style-ds { font-size: 11px; color: var(--t2); margin-top: 3px; max-width: 180px; line-height: 1.5; }
+    .entity-tag {
+      font-size: 10px; padding: 2px 6px; border-radius: 4px;
+      font-weight: 600; display: inline-block; min-width: 20px; text-align: center;
+      background: var(--surf2); color: var(--t2);
+    }
+    .sz-m { background: rgba(0,122,255,.1); color: var(--blu); }
+    .sz-p { background: rgba(175,82,222,.1); color: var(--mag); }
+    .sz-w { background: rgba(52,199,89,.1); color: var(--grn); }
+    .sz-x { background: rgba(255,204,0,.15); color: #9a7b00; }
+    .dt-main { font-size: 13px; font-weight: 600; white-space: nowrap; letter-spacing: -0.01em; }
+    .dt-sub  { margin-top: 4px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+    .fit-ok  { font-size: 11px; color: var(--grn); font-weight: 500; }
+    .fit-no  { font-size: 11px; color: var(--t3); font-weight: 500; }
+
+    /* ALERT ICON COL */
+    .alert-col { text-align: center; width: 32px; }
+    .ai { display: inline-flex; align-items: center; justify-content: center; font-size: 15px; }
+
+    /* EMPTY */
+    .empty { text-align: center; padding: 60px 24px; color: var(--t3); }
+    .empty-ico { font-size: 32px; margin-bottom: 12px; }
+
+    /* POWER AUTOMATE */
+    .pa-wrap { border-top: 1px solid var(--border); background: var(--surf); }
+    .pa-toggle {
+      display: flex; align-items: center; gap: 8px; padding: 14px 20px;
+      cursor: pointer; color: var(--t2); font-size: 12px; font-weight: 500; transition: color .15s;
+    }
+    .pa-toggle:hover { color: var(--t1); }
+    .pa-body { display: none; padding: 0 20px 24px; }
+    .pa-body.open { display: block; }
+    .pa-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px,1fr)); gap: 10px; }
+    .pa-step { padding: 16px; background: var(--surf2); border-radius: 12px; }
+    .pa-num { font-size: 24px; font-weight: 800; color: var(--t3); margin-bottom: 8px; letter-spacing: -0.03em; }
+    .pa-ttl { font-size: 12px; font-weight: 600; margin-bottom: 4px; }
+    .pa-dsc { font-size: 11px; color: var(--t2); line-height: 1.7; }
+
+    /* TOAST */
+    .toasts { position: fixed; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 8px; z-index: 999; }
+    .toast {
+      padding: 12px 16px; background: var(--surf); border: none;
+      border-left: 4px solid var(--red); border-radius: 10px; font-size: 13px;
+      max-width: 320px; animation: tin .25s ease-out;
+      box-shadow: var(--shadow-lg); font-weight: 500;
+    }
+    .toast.ok { border-left-color: var(--grn); }
+    @keyframes tin { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:none} }
+
+    /* SCROLLBAR */
+    ::-webkit-scrollbar { width: 7px; height: 7px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--t3); }
+  </style>
+</head>
+<body>
+
+<!-- WINDOW CHROME (macOS style) -->
+<div class="window-chrome">
+  <div class="traffic-lights">
+    <div class="tl tl-red"></div>
+    <div class="tl tl-yel"></div>
+    <div class="tl tl-grn"></div>
+  </div>
+  <div class="window-title">WIP <span class="accent">Deadline</span> Checker</div>
+  <div style="width:52px"></div>
+</div>
+
+<!-- HEADER -->
+<header class="app-header">
+  <div class="app-title"></div>
+  <div class="header-right">
+    <span class="today-date" id="today-date"></span>
+    <span class="file-name" id="fname"></span>
+    <button class="btn" id="btn-reup" onclick="resetUpload()">↩ 다시 올리기</button>
+  </div>
+</header>
+
+<!-- UPLOAD ZONE -->
+<div id="upload-zone">
+  <div class="upload-box" id="upload-box" onclick="document.getElementById('file-input').click()">
+    <div class="upload-icon">📊</div>
+    <div class="upload-title">엑셀 파일 업로드</div>
+    <div class="upload-hint">.xlsx / .xls 지원<br>클릭하거나 드래그해서 올려주세요</div>
+  </div>
+  <input type="file" id="file-input" accept=".xlsx,.xls" onchange="handleFile(this.files[0])">
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard">
+  <div class="tna-bar" id="tna-bar"></div>
+
+  <div class="controls">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;" id="chips">
+      <div class="chip" id="chip-block"   onclick="toggleChip('block')">🚫 PP 진행 불가 <span class="chip-n" id="cn-block">0</span></div>
+      <div class="chip" id="chip-urgent"  onclick="toggleChip('urgent')">🔥 긴급 <span class="chip-n" id="cn-urgent">0</span></div>
+      <div class="chip" id="chip-fitno"   onclick="toggleChip('fitno')">❌ Fit 미승인 <span class="chip-n" id="cn-fitno">0</span></div>
+      <div class="chip" id="chip-trimwarn" onclick="toggleChip('trimwarn')">⚠️ Trim 경보 <span class="chip-n" id="cn-trimwarn">0</span></div>
+    </div>
+  </div>
+
+  <div class="stats-grid" id="stats"></div>
+  <div class="tabs" id="tabs"></div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th class="alert-col">!</th>
+          <th>STYLE # / DESC</th>
+          <th>ENT</th>
+          <th>📦 GAC</th>
+          <th>FIT APPROVAL (FAD)</th>
+          <th>PP APPROVAL (PPAD)</th>
+          <th>TRIM DUE</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    <div id="empty-state" class="empty" style="display:none">
+      <div class="empty-ico">🔍</div>
+      <div>해당 조건의 스타일이 없습니다</div>
+    </div>
+  </div>
+</div>
+
+<!-- POWER AUTOMATE GUIDE -->
+<div class="pa-wrap">
+  <div class="pa-toggle" onclick="togglePA()">
+    <span id="pa-arr">▶</span> Power Automate 알림 설정 가이드
+  </div>
+  <div class="pa-body" id="pa-body">
+    <div class="pa-grid">
+      <div class="pa-step"><div class="pa-num">01</div><div class="pa-ttl">Power Automate 접속</div><div class="pa-dsc">make.powerautomate.com 에 접속하여 회사 계정으로 로그인합니다.</div></div>
+      <div class="pa-step"><div class="pa-num">02</div><div class="pa-ttl">예약 흐름 만들기</div><div class="pa-dsc">+ 만들기 → 예약된 클라우드 흐름 선택. 매일 오전 9시로 반복 설정합니다.</div></div>
+      <div class="pa-step"><div class="pa-num">03</div><div class="pa-ttl">Excel 연결</div><div class="pa-dsc">SharePoint / OneDrive의 WIP 엑셀에 연결하여 D-day 계산 작업을 추가합니다.</div></div>
+      <div class="pa-step"><div class="pa-num">04</div><div class="pa-ttl">이메일 + Teams 발송</div><div class="pa-dsc">경보 항목이 있을 때 Outlook 이메일 및 Teams 메시지를 발송하는 작업을 추가합니다.</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="toasts" id="toasts"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+// ─── STATE ──────────────────────────────────────────────────────────────────
+const S = { rows: [], tab: 'all', alertF: null, statF: null };
+
+// ─── CONSTANTS ───────────────────────────────────────────────────────────────
+const FIT_KW = ['approved', 'approval', 'c/o', 'fixed', 'complete', 'done'];
+
+// ─── DATE UTILS ──────────────────────────────────────────────────────────────
+function toDate(v) {
+  if (v == null) return null;
+  if (v instanceof Date) return isNaN(v) ? null : v;
+  if (typeof v === 'number') {
+    const ms = Math.round((v - 25569) * 86400000);
+    const d = new Date(ms);
+    return isNaN(d) ? null : d;
+  }
+  if (typeof v === 'string' && v.trim()) {
+    const d = new Date(v);
+    return isNaN(d) ? null : d;
+  }
+  return null;
+}
+
+function addDays(d, n) {
+  if (!d) return null;
+  const r = new Date(d); r.setDate(r.getDate() + n); return r;
+}
+
+function ddMD(d) {
+  if (!d) return null;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const t = new Date(today.getFullYear(), d.getMonth(), d.getDate());
+  return Math.ceil((t - today) / 86400000);
+}
+
+function diffDays(a, b) {
+  if (!a || !b) return null;
+  return Math.round((a - b) / 86400000);
+}
+
+function fmt(d) {
+  if (!d) return '-';
+  return `${d.getMonth()+1}/${String(d.getDate()).padStart(2,'0')}`;
+}
+
+// ─── GRAY SHADE ───────────────────────────────────────────────────────────────
+function isGray(ws, r, c) {
+  if (c < 0) return false;
+  try {
+    const cell = ws[XLSX.utils.encode_cell({r, c})];
+    if (!cell?.s) return false;
+    const fg = cell.s.fgColor, bg = cell.s.bgColor;
+    if (fg && typeof fg.tint === 'number' && fg.tint < -0.1) return true;
+    if (bg && typeof bg.tint === 'number' && bg.tint < -0.1) return true;
+    return false;
+  } catch { return false; }
+}
+
+// ─── COLUMN HELPERS ──────────────────────────────────────────────────────────
+function findHdrRow(data) {
+  for (let r = 0; r < Math.min(10, data.length); r++) {
+    const row = data[r];
+    if (!row) continue;
+    for (let c = 0; c < 3; c++) {
+      if (row[c] && String(row[c]).trim().toLowerCase() === 'brand moment') return r;
+    }
+  }
+  return -1;
+}
+
+function findCol(hdrs, kw, exact = false) {
+  for (let c = 0; c < hdrs.length; c++) {
+    const h = String(hdrs[c] ?? '').toLowerCase().trim();
+    if (exact ? h === kw : h.includes(kw)) return c;
+  }
+  return -1;
+}
+
+// ─── ENTITY SIZE MAP ─────────────────────────────────────────────────────────
+const ENTITY_SIZE_MAP = { 'missy':'M', 'petite':'P', 'woman':'W', 'women petite':'X' };
+
+// ─── PARSE SHEET ─────────────────────────────────────────────────────────────
+function parseSheet(ws, sheet) {
+  const data = XLSX.utils.sheet_to_json(ws, { header:1, raw:true, defval:null });
+  const hi = findHdrRow(data);
+  if (hi < 0) return [];
+
+  const hdrs = data[hi];
+  const C = {
+    style: 1, desc: 2, entity: 7,
+    ih:   findCol(hdrs, 'ih date'),
+    fad:  findCol(hdrs, 'fit approval'),
+    fst:  findCol(hdrs, 'status', true),
+    ppad: findCol(hdrs, 'pps approval'),
+    trim: findCol(hdrs, 'trim app'),
+    gac:  findCol(hdrs, 'gac'),
+    cut:  findCol(hdrs, 'planned cut'),
+  };
+
+  const styleEntityMap = new Map();
+  let currentStyle = null;
+  for (let r = hi + 1; r < data.length; r++) {
+    const row = data[r];
+    if (!row) continue;
+    const style = row[C.style];
+    if (style && String(style).trim()) {
+      currentStyle = String(style).trim();
+      if (!styleEntityMap.has(currentStyle)) styleEntityMap.set(currentStyle, new Set());
+    }
+    if (currentStyle) {
+      const ent = row[C.entity] ? String(row[C.entity]).trim().toLowerCase() : '';
+      if (ent && ENTITY_SIZE_MAP[ent]) {
+        styleEntityMap.get(currentStyle).add(ENTITY_SIZE_MAP[ent]);
+      }
+    }
+  }
+
+  const rows = [];
+  for (let r = hi + 1; r < data.length; r++) {
+    const row = data[r];
+    if (!row) continue;
+    const style = row[C.style];
+    if (!style || !String(style).trim()) continue;
+
+    const ihDate   = toDate(C.ih   >= 0 ? row[C.ih]   : null);
+    const fadDate  = toDate(C.fad  >= 0 ? row[C.fad]  : null);
+    const ppadDate = toDate(C.ppad >= 0 ? row[C.ppad] : null);
+    const trimDate = toDate(C.trim >= 0 ? row[C.trim] : null);
+    const gacDate  = toDate(C.gac  >= 0 ? row[C.gac]  : null);
+    const cutDate  = toDate(C.cut  >= 0 ? row[C.cut]  : null);
+    const fadSt    = C.fst >= 0 ? row[C.fst] : null;
+
+    const gacDd  = ddMD(gacDate);
+    const fadDd  = ddMD(fadDate);
+    const ppadDd = ddMD(ppadDate);
+    const trimDd = ddMD(trimDate);
+    const cutDd  = ddMD(cutDate);
+
+    const fitOk = (isGray(ws, r, C.fad) || !!(fadSt && FIT_KW.some(k => String(fadSt).toLowerCase().includes(k))));
+    const trimOk = isGray(ws, r, C.trim);
+
+    let alert = null;
+    const isUrgentFad  = !fitOk && fadDd !== null && fadDd >= 0 && fadDd <= 14;
+    const isUrgentPpad = ppadDd !== null && ppadDd >= 0 && ppadDd <= 14;
+    const isTrimBlock  = !trimOk && ppadDd !== null && ppadDd >= 0 && ppadDd <= 14;
+    if (!fitOk && fadDd !== null && fadDd < 0)                    alert = 'block';
+    else if (isTrimBlock)                                         alert = 'block';
+    else if (isUrgentFad || isUrgentPpad)                         alert = 'urgent';
+    else if (!trimOk && ppadDd !== null && ppadDd <= 30)          alert = 'trimwarn';
+    else if (!fitOk && fadDd !== null && fadDd >= 0 && fadDd <= 30) alert = 'fitno';
+
+    const gacDiff    = gacDd;
+    const ppadVsGac  = (ppadDate && gacDate) ? diffDays(ppadDate, gacDate) : null;
+    const isPpad14   = ppadVsGac !== null && ppadVsGac >= -14 && ppadVsGac <= 0;
+
+    const sizeOrder = ['M','P','W','X'];
+    const sizeSet = styleEntityMap.get(String(style).trim()) || new Set();
+    const sizeCodes = sizeOrder.filter(c => sizeSet.has(c));
+
+    rows.push({
+      sheet, style: String(style).trim(),
+      desc:   row[C.desc]   ? String(row[C.desc]).trim()   : '',
+      entity: row[C.entity] ? String(row[C.entity]).trim() : '',
+      sizeCodes,
+      ihDate, fadDate, fadSt, ppadDate, trimDate, gacDate, cutDate,
+      gacDd, fadDd, ppadDd, trimDd, cutDd,
+      fitOk, trimOk, alert, gacDiff, isPpad14,
+    });
+  }
+  return rows;
+}
+
+// ─── BADGE HELPERS ───────────────────────────────────────────────────────────
+function dBadge(diff) {
+  if (diff == null) return '<span style="color:var(--t3)">-</span>';
+  if (diff < 0)   return `<span style="color:var(--t3);font-size:10px">지남</span>`;
+  if (diff === 0) return `<span class="badge b-red">D-day</span>`;
+  if (diff <= 7)  return `<span class="badge b-red">${diff}일 남음</span>`;
+  if (diff <= 14) return `<span class="badge b-ora">${diff}일 남음</span>`;
+  if (diff <= 30) return `<span class="badge b-yel">${diff}일 남음</span>`;
+  return `<span style="color:var(--t2)">${diff}일 남음</span>`;
+}
+
+function tnaBadge(diff) {
+  if (diff == null) return '';
+  if (diff > 0) return `<span class="tna-up">+${diff}d</span>`;
+  if (diff < 0) return `<span class="tna-down">${diff}d</span>`;
+  return '';
+}
+
+function gacBadge(cutDd) {
+  if (cutDd == null) return '';
+  if (cutDd > 0) return `<span class="gac-badge">D-${cutDd}</span>`;
+  if (cutDd < 0) return `<span class="gac-warn">D+${Math.abs(cutDd)}</span>`;
+  return `<span class="gac-warn">D-day</span>`;
+}
+
+function ddColor(dd) {
+  if (dd == null) return 'var(--t3)';
+  if (dd < 0)   return 'var(--red)';
+  if (dd <= 14) return 'var(--ora)';
+  return 'var(--t2)';
+}
+
+// ─── RENDER TNA BAR ──────────────────────────────────────────────────────────
+function renderTnaBar(rows) {
+  const el = document.getElementById('tna-bar');
+  // GAC 기준 그룹핑 — 같은 월끼리 묶기
+  const groups = new Map();
+  for (const r of rows) {
+    if (!r.gacDate) continue;
+    const key = r.gacDate.getFullYear() + '-' + r.gacDate.getMonth();
+    if (!groups.has(key)) groups.set(key, { rows: [] });
+    groups.get(key).rows.push(r);
+  }
+  if (!groups.size) { el.innerHTML = '<span style="color:var(--t3);font-size:11px">GAC DATE 없음</span>'; return; }
+
+  const sorted = [...groups.values()].sort((a,b) => {
+    const ad = a.rows.map(r=>r.gacDate).sort((x,y)=>x-y)[0];
+    const bd = b.rows.map(r=>r.gacDate).sort((x,y)=>x-y)[0];
+    return ad - bd;
+  });
+  el.innerHTML = sorted.map(g => {
+    const gacDates = g.rows.map(r => r.gacDate).sort((a,b) => a - b);
+    const gacEarliest = gacDates[0];
+    const gacLatest = gacDates[gacDates.length - 1];
+    const gacDd = ddMD(gacEarliest);
+    // 실제 엑셀 날짜 사용 (그룹 내 가장 빠른 날짜)
+    const fadDates  = g.rows.map(r => r.fadDate).filter(Boolean).sort((a,b) => a-b);
+    const ppadDates = g.rows.map(r => r.ppadDate).filter(Boolean).sort((a,b) => a-b);
+    const cutDates  = g.rows.map(r => r.cutDate).filter(Boolean).sort((a,b) => a-b);
+    const refs = [
+      { l:'FAD',  d: fadDates[0]  || null },
+      { l:'PPAD', d: ppadDates[0] || null },
+      { l:'CUT',  d: cutDates[0]  || null },
+      { l:'GAC',  d: gacEarliest },
+    ].filter(x => x.d);
+    const datesHtml = refs.map(({ l, d }) => {
+      const dd = ddMD(d);
+      const ddTxt = dd == null ? '-' : dd < 0 ? `${Math.abs(dd)}일 초과` : dd === 0 ? 'D-day' : `${dd}일 남음`;
+      return `<div class="tna-row">
+        <span class="tna-lbl">${l}</span>
+        <span class="tna-dt">${fmt(d)}</span>
+        <span class="tna-dd" style="color:${ddColor(dd)}">${ddTxt}</span>
+      </div>`;
+    }).join('');
+    // 헤더: 같은 달이면 한 날짜, 다르면 범위 표시
+    const gacLabel = (gacEarliest.getTime() === gacLatest.getTime())
+      ? `GAC ${fmt(gacEarliest)}/${gacEarliest.getFullYear()}`
+      : `GAC ${fmt(gacEarliest)}~${fmt(gacLatest)}/${gacEarliest.getFullYear()}`;
+    return `<div class="tna-group">
+      <div class="tna-ih">${gacLabel}</div>
+      <div class="tna-count">${g.rows.length}개 스타일 · ${gacDd != null ? (gacDd < 0 ? `${Math.abs(gacDd)}일 초과` : `D-${gacDd}`) : '-'}</div>
+      ${datesHtml}
+    </div>`;
+  }).join('');
+}
+
+// ─── RENDER STATS ────────────────────────────────────────────────────────────
+function renderStats(rows) {
+  const cards = [
+    { k:'all',      lbl:'전체',         n: rows.length,                                                        clr:'var(--t1)' },
+    { k:'cut-over', lbl:'GAC 초과',     n: rows.filter(r=>r.gacDiff!=null&&r.gacDiff<0).length,              clr:'var(--red)' },
+    { k:'cut-30',   lbl:'30일 이내',    n: rows.filter(r=>r.gacDiff!=null&&r.gacDiff>=0&&r.gacDiff<=30).length, clr:'var(--ora)' },
+    { k:'cut-60',   lbl:'60일 이내',    n: rows.filter(r=>r.gacDiff!=null&&r.gacDiff>30&&r.gacDiff<=60).length, clr:'var(--yel)' },
+    { k:'ppad-14',  lbl:'PPAD D-14',    n: rows.filter(r=>r.isPpad14).length,                                 clr:'var(--mag)' },
+    { k:'plenty',   lbl:'여유있음',     n: rows.filter(r=>r.gacDiff!=null&&r.gacDiff>60).length,             clr:'var(--blu)' },
+  ];
+  document.getElementById('stats').innerHTML = cards.map(c =>
+    `<div class="stat-card" id="sc-${c.k}" style="color:${c.clr}" onclick="toggleStat('${c.k}')">
+      <div class="stat-lbl">${c.lbl}</div>
+      <div class="stat-n">${c.n}</div>
+    </div>`
+  ).join('');
+}
+
+// ─── RENDER TABS ─────────────────────────────────────────────────────────────
+function renderTabs() {
+  const sheets = ['all', ...new Set(S.rows.map(r => r.sheet))];
+  document.getElementById('tabs').innerHTML = sheets.map(s => {
+    const n = s === 'all' ? S.rows.length : S.rows.filter(r=>r.sheet===s).length;
+    const lbl = s === 'all' ? '전체' : s;
+    return `<div class="tab ${S.tab===s?'on':''}" onclick="setTab('${s}')">${lbl}<span class="tab-n">${n}</span></div>`;
+  }).join('');
+}
+
+// ─── RENDER TABLE ─────────────────────────────────────────────────────────────
+function renderTable() {
+  let rows = [...S.rows];
+
+  if (S.tab !== 'all')    rows = rows.filter(r => r.sheet === S.tab);
+  if (S.alertF)           rows = rows.filter(r => r.alert === S.alertF);
+  if (S.statF) {
+    switch(S.statF) {
+      case 'cut-over': rows = rows.filter(r=>r.gacDiff!=null&&r.gacDiff<0); break;
+      case 'cut-30':   rows = rows.filter(r=>r.gacDiff!=null&&r.gacDiff>=0&&r.gacDiff<=30); break;
+      case 'cut-60':   rows = rows.filter(r=>r.gacDiff!=null&&r.gacDiff>30&&r.gacDiff<=60); break;
+      case 'ppad-14':  rows = rows.filter(r=>r.isPpad14); break;
+      case 'plenty':   rows = rows.filter(r=>r.gacDiff!=null&&r.gacDiff>60); break;
+    }
+  }
+
+  const ord = { block:0, urgent:1, trimwarn:2, fitno:3 };
+  rows.sort((a,b) => {
+    const ao = ord[a.alert] ?? 4, bo = ord[b.alert] ?? 4;
+    if (ao !== bo) return ao - bo;
+    return (a.gacDiff ?? 9999) - (b.gacDiff ?? 9999);
+  });
+
+  const tbody = document.getElementById('tbody');
+  const empty = document.getElementById('empty-state');
+
+  if (!rows.length) { tbody.innerHTML = ''; empty.style.display = 'block'; }
+  else {
+    empty.style.display = 'none';
+    tbody.innerHTML = rows.map(r => {
+      const icons = { block:'<span class="ai blink" title="PP 진행 불가">🚫</span>', urgent:'<span class="ai blink" title="긴급">🔥</span>', fitno:'<span class="ai" title="Fit 미승인">❌</span>', trimwarn:'<span class="ai" title="Trim 경보">⚠️</span>' };
+      return `<tr class="${r.alert ? 'row-'+r.alert : ''}">
+        <td class="alert-col">${r.alert ? icons[r.alert] : ''}</td>
+        <td>
+          <div class="style-no">${r.style}</div>
+          <div class="style-ds">${r.desc}</div>
+        </td>
+        <td>${r.sizeCodes.length ? r.sizeCodes.map(c => `<span class="entity-tag sz-${c.toLowerCase()}">${c}</span>`).join(' ') : '<span class="entity-tag">-</span>'}</td>
+        <td>
+          <div class="dt-main">${fmt(r.gacDate)}</div>
+          <div class="dt-sub">${dBadge(r.gacDd)}</div>
+        </td>
+        <td>
+          <div class="dt-main">${fmt(r.fadDate)}</div>
+          <div class="dt-sub">${dBadge(r.fadDd)} ${gacBadge(r.gacDd)}</div>
+          <div style="margin-top:3px">${r.fitOk ? '<span class="fit-ok">✓ 승인</span>' : '<span class="fit-no">✗ 미승인</span>'}</div>
+        </td>
+        <td>
+          <div class="dt-main">${fmt(r.ppadDate)}</div>
+          <div class="dt-sub">${dBadge(r.ppadDd)} ${gacBadge(r.gacDd)}</div>
+        </td>
+        <td>
+          <div class="dt-main">${fmt(r.trimDate)}</div>
+          <div class="dt-sub">${dBadge(r.trimDd)} ${gacBadge(r.gacDd)}</div>
+          ${r.trimOk ? '<div style="color:var(--grn);font-size:11px;margin-top:2px">✓ 완료</div>' : ''}
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  let base = S.tab !== 'all' ? S.rows.filter(r=>r.sheet===S.tab) : S.rows;
+  document.getElementById('cn-block').textContent    = base.filter(r=>r.alert==='block').length;
+  document.getElementById('cn-urgent').textContent   = base.filter(r=>r.alert==='urgent').length;
+  document.getElementById('cn-fitno').textContent    = base.filter(r=>r.alert==='fitno').length;
+  document.getElementById('cn-trimwarn').textContent = base.filter(r=>r.alert==='trimwarn').length;
+}
+
+// ─── FILE HANDLING ────────────────────────────────────────────────────────────
+function handleFile(file) {
+  if (!file) return;
+  if (!/\.(xlsx|xls)$/i.test(file.name)) { toast('지원하지 않는 파일 형식입니다. .xlsx 또는 .xls 파일을 업로드하세요.'); return; }
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb = XLSX.read(e.target.result, { type:'binary', cellStyles:true, cellDates:false });
+      S.rows = [];
+      for (const sn of wb.SheetNames) {
+        S.rows.push(...parseSheet(wb.Sheets[sn], sn));
+      }
+      if (!S.rows.length) { toast('파싱된 데이터가 없습니다. Brand Moment 헤더를 확인하세요.'); return; }
+
+      document.getElementById('upload-zone').style.display = 'none';
+      document.getElementById('dashboard').style.display = 'block';
+      document.getElementById('btn-reup').classList.add('visible');
+      document.getElementById('fname').textContent = file.name;
+
+      S.tab = 'all'; S.alertF = null; S.statF = null;
+      renderTnaBar(S.rows);
+      renderStats(S.rows);
+      renderTabs();
+      renderTable();
+      toast(`${S.rows.length}개 스타일 로드 완료`, true);
+    } catch(err) {
+      console.error(err);
+      toast(`파싱 오류: ${err.message}`);
+    }
+  };
+  reader.readAsBinaryString(file);
+}
+
+function resetUpload() {
+  document.getElementById('upload-zone').style.display = 'flex';
+  document.getElementById('dashboard').style.display = 'none';
+  document.getElementById('btn-reup').classList.remove('visible');
+  document.getElementById('fname').textContent = '';
+  document.getElementById('file-input').value = '';
+  S.rows = [];
+}
+
+// ─── INTERACTIONS ─────────────────────────────────────────────────────────────
+function setTab(t) {
+  S.tab = t; S.alertF = null; S.statF = null;
+  document.querySelectorAll('.chip').forEach(c => c.className = 'chip');
+  document.querySelectorAll('.stat-card').forEach(c => c.classList.remove('on'));
+  renderTabs(); renderTable();
+}
+
+function toggleChip(type) {
+  S.statF = null;
+  document.querySelectorAll('.stat-card').forEach(c => c.classList.remove('on'));
+  if (S.alertF === type) {
+    S.alertF = null;
+    document.getElementById('chip-'+type).className = 'chip';
+  } else {
+    if (S.alertF) document.getElementById('chip-'+S.alertF).className = 'chip';
+    S.alertF = type;
+    document.getElementById('chip-'+type).className = 'chip on-'+type;
+  }
+  renderTable();
+}
+
+function toggleStat(k) {
+  if (k === 'all') {
+    S.statF = null; S.alertF = null;
+    document.querySelectorAll('.chip').forEach(c => c.className = 'chip');
+    document.querySelectorAll('.stat-card').forEach(c => c.classList.remove('on'));
+    renderTable(); return;
+  }
+  S.alertF = null;
+  document.querySelectorAll('.chip').forEach(c => c.className = 'chip');
+  if (S.statF === k) {
+    S.statF = null;
+    document.getElementById('sc-'+k)?.classList.remove('on');
+  } else {
+    if (S.statF) document.getElementById('sc-'+S.statF)?.classList.remove('on');
+    S.statF = k;
+    document.getElementById('sc-'+k)?.classList.add('on');
+  }
+  renderTable();
+}
+
+function togglePA() {
+  const b = document.getElementById('pa-body');
+  b.classList.toggle('open');
+  document.getElementById('pa-arr').textContent = b.classList.contains('open') ? '▼' : '▶';
+}
+
+// ─── TOAST ────────────────────────────────────────────────────────────────────
+function toast(msg, ok = false) {
+  const c = document.getElementById('toasts');
+  const el = document.createElement('div');
+  el.className = 'toast' + (ok ? ' ok' : '');
+  el.textContent = msg;
+  c.appendChild(el);
+  setTimeout(() => el.remove(), 5000);
+}
+
+// ─── TODAY DATE ───────────────────────────────────────────────────────────────
+(function renderToday() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+  document.getElementById('today-date').textContent = `${y}.${m}.${day} (${weekdays[d.getDay()]})`;
+})();
+
+// ─── DRAG & DROP ──────────────────────────────────────────────────────────────
+const box = document.getElementById('upload-box');
+box.addEventListener('dragover',  e => { e.preventDefault(); box.classList.add('drag-over'); });
+box.addEventListener('dragleave', ()  => box.classList.remove('drag-over'));
+box.addEventListener('drop', e => {
+  e.preventDefault(); box.classList.remove('drag-over');
+  handleFile(e.dataTransfer.files[0]);
+});
+</script>
+</body>
+</html>
