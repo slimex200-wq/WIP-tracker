@@ -109,6 +109,15 @@
       border-bottom: 1px solid var(--border);
     }
 
+    /* SEARCH */
+    .search-input {
+      margin-left: auto; padding: 6px 12px; border: 1px solid var(--border);
+      border-radius: 8px; font-size: 12px; font-family: inherit; width: 200px;
+      background: var(--surf2); color: var(--t1); outline: none; transition: border-color .15s;
+    }
+    .search-input:focus { border-color: var(--blu); background: var(--surf); }
+    .search-input::placeholder { color: var(--t3); }
+
     /* CHIPS */
     .chip {
       display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px;
@@ -165,16 +174,20 @@
       border-bottom: 1px solid var(--border); white-space: nowrap;
       background: var(--surf2);
     }
+    th.sortable { cursor: pointer; user-select: none; }
+    th.sortable:hover { color: var(--blu); }
+    .sort-arrow { font-size: 10px; margin-left: 2px; color: var(--t3); }
+    th.sorted .sort-arrow { color: var(--blu); }
     td { padding: 10px 14px; border-bottom: 1px solid rgba(210,210,215,.5); vertical-align: top; }
     tr:hover { background: rgba(0,122,255,.02); }
-    tr.row-block   { background: rgba(0,90,180,.10); border-left: 3px solid #1a5fb4; }
-    tr.row-block:hover { background: rgba(0,90,180,.15); }
-    tr.row-urgent  { background: rgba(0,110,200,.08); border-left: 3px solid #3584e4; }
-    tr.row-urgent:hover { background: rgba(0,110,200,.12); }
-    tr.row-fitno   { background: rgba(0,130,220,.05); border-left: 3px solid #62a0ea; }
-    tr.row-fitno:hover { background: rgba(0,130,220,.09); }
-    tr.row-trimwarn { background: rgba(0,150,240,.04); border-left: 3px solid #99c1f1; }
-    tr.row-trimwarn:hover { background: rgba(0,150,240,.07); }
+    tr.row-block   { background: rgba(255,59,48,.08); border-left: 3px solid var(--red); }
+    tr.row-block:hover { background: rgba(255,59,48,.13); }
+    tr.row-urgent  { background: rgba(255,149,0,.08); border-left: 3px solid var(--ora); }
+    tr.row-urgent:hover { background: rgba(255,149,0,.13); }
+    tr.row-fitno   { background: rgba(255,204,0,.08); border-left: 3px solid #d4a800; }
+    tr.row-fitno:hover { background: rgba(255,204,0,.13); }
+    tr.row-trimwarn { background: rgba(255,230,100,.06); border-left: 3px solid #e6c200; }
+    tr.row-trimwarn:hover { background: rgba(255,230,100,.10); }
 
     @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
     .blink { animation: blink 1.6s ease-in-out infinite; }
@@ -184,6 +197,8 @@
       display: inline-block; padding: 3px 8px; border-radius: 6px;
       font-size: 10px; font-weight: 600; white-space: nowrap;
     }
+    .b-crit { background: var(--red); color: #fff; font-weight: 800; font-size: 11px; letter-spacing: 0.02em; animation: pulse-crit 1.8s ease-in-out infinite; }
+    @keyframes pulse-crit { 0%,100%{opacity:1} 50%{opacity:.65} }
     .b-red { background: rgba(255,59,48,.1); color: var(--red); }
     .b-ora { background: rgba(255,149,0,.1); color: var(--ora); }
     .b-yel { background: rgba(255,204,0,.12); color: #9a7b00; }
@@ -242,6 +257,33 @@
     .toast.ok { border-left-color: var(--grn); }
     @keyframes tin { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:none} }
 
+    /* PRINT */
+    @media print {
+      .window-chrome, .app-header, .tna-bar, .controls, .stats-grid, .tabs, .pa-wrap, .toasts, .spinner-overlay { display: none !important; }
+      #dashboard { display: block !important; }
+      .table-wrap { overflow: visible; }
+      body { background: #fff; font-size: 11px; }
+      tr.row-block   { background: rgba(255,59,48,.08) !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      tr.row-urgent  { background: rgba(255,149,0,.08) !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      tr.row-fitno   { background: rgba(255,204,0,.08) !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      tr.row-trimwarn { background: rgba(255,230,100,.06) !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+
+    /* SPINNER OVERLAY */
+    .spinner-overlay {
+      display: none; position: fixed; inset: 0; z-index: 200;
+      background: rgba(245,245,247,.65); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+      align-items: center; justify-content: center; flex-direction: column; gap: 14px;
+    }
+    .spinner-overlay.visible { display: flex; }
+    .spinner-ring {
+      width: 40px; height: 40px; border: 3px solid var(--border);
+      border-top-color: var(--blu); border-radius: 50%;
+      animation: spin .8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner-text { font-size: 13px; color: var(--t2); font-weight: 500; }
+
     /* SCROLLBAR */
     ::-webkit-scrollbar { width: 7px; height: 7px; }
     ::-webkit-scrollbar-track { background: transparent; }
@@ -268,6 +310,8 @@
   <div class="header-right">
     <span class="today-date" id="today-date"></span>
     <span class="file-name" id="fname"></span>
+    <button class="btn" id="btn-print" onclick="window.print()">🖨 인쇄</button>
+    <button class="btn" id="btn-csv" onclick="exportCSV()">📥 CSV</button>
     <button class="btn" id="btn-reup" onclick="resetUpload()">↩ 다시 올리기</button>
   </div>
 </header>
@@ -293,6 +337,7 @@
       <div class="chip" id="chip-fitno"   onclick="toggleChip('fitno')">❌ Fit 미승인 <span class="chip-n" id="cn-fitno">0</span></div>
       <div class="chip" id="chip-trimwarn" onclick="toggleChip('trimwarn')">⚠️ Trim 경보 <span class="chip-n" id="cn-trimwarn">0</span></div>
     </div>
+    <input type="text" class="search-input" id="search-input" placeholder="🔍 스타일/설명 검색…" oninput="onSearch(this.value)">
   </div>
 
   <div class="stats-grid" id="stats"></div>
@@ -300,15 +345,15 @@
 
   <div class="table-wrap">
     <table>
-      <thead>
+      <thead id="thead">
         <tr>
           <th class="alert-col">!</th>
-          <th>STYLE # / DESC</th>
+          <th class="sortable" onclick="toggleSort('style')">STYLE # / DESC<span class="sort-arrow" id="sa-style"></span></th>
           <th>ENT</th>
-          <th>✂ PLAN CUT DATE</th>
-          <th>FIT APPROVAL (FAD)</th>
-          <th>PP APPROVAL (PPAD)</th>
-          <th>TRIM DUE</th>
+          <th class="sortable" onclick="toggleSort('cutDate')">✂ PLAN CUT DATE<span class="sort-arrow" id="sa-cutDate"></span></th>
+          <th class="sortable" onclick="toggleSort('fadDate')">FIT APPROVAL (FAD)<span class="sort-arrow" id="sa-fadDate"></span></th>
+          <th class="sortable" onclick="toggleSort('ppadDate')">PP APPROVAL (PPAD)<span class="sort-arrow" id="sa-ppadDate"></span></th>
+          <th class="sortable" onclick="toggleSort('trimDate')">TRIM DUE<span class="sort-arrow" id="sa-trimDate"></span></th>
         </tr>
       </thead>
       <tbody id="tbody"></tbody>
@@ -335,12 +380,16 @@
   </div>
 </div>
 
+<div class="spinner-overlay" id="spinner">
+  <div class="spinner-ring"></div>
+  <div class="spinner-text">파일 분석 중…</div>
+</div>
 <div class="toasts" id="toasts"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 // ─── STATE ──────────────────────────────────────────────────────────────────
-const S = { rows: [], tab: 'all', alertF: null, statF: null };
+const S = { rows: [], tab: 'all', alertF: null, statF: null, searchQ: '', sortCol: null, sortAsc: true };
 
 // ─── CONSTANTS ───────────────────────────────────────────────────────────────
 const FIT_KW = ['approved', 'approval', 'c/o', 'fixed', 'complete', 'done'];
@@ -511,9 +560,12 @@ function parseSheet(ws, sheet) {
 }
 
 // ─── BADGE HELPERS ───────────────────────────────────────────────────────────
-function dBadge(diff) {
+function dBadge(diff, fitOk) {
   if (diff == null) return '<span style="color:var(--t3)">-</span>';
-  if (diff < 0)   return `<span style="color:var(--t3);font-size:10px">지남</span>`;
+  if (diff < 0) {
+    if (fitOk === false) return `<span class="badge b-crit">${Math.abs(diff)}일 초과</span>`;
+    return `<span style="color:var(--t3);font-size:10px">지남</span>`;
+  }
   if (diff === 0) return `<span class="badge b-red">D-day</span>`;
   if (diff <= 7)  return `<span class="badge b-red">${diff}일 남음</span>`;
   if (diff <= 14) return `<span class="badge b-ora">${diff}일 남음</span>`;
@@ -599,12 +651,12 @@ function renderTnaBar(rows) {
 // ─── RENDER STATS ────────────────────────────────────────────────────────────
 function renderStats(rows) {
   const cards = [
-    { k:'all',      lbl:'전체',         n: rows.length,                                                        clr:'var(--t1)' },
-    { k:'cut-over', lbl:'GAC 초과',     n: rows.filter(r=>r.gacDiff!=null&&r.gacDiff<0).length,              clr:'var(--red)' },
-    { k:'cut-30',   lbl:'30일 이내',    n: rows.filter(r=>r.gacDiff!=null&&r.gacDiff>=0&&r.gacDiff<=30).length, clr:'var(--ora)' },
-    { k:'cut-60',   lbl:'60일 이내',    n: rows.filter(r=>r.gacDiff!=null&&r.gacDiff>30&&r.gacDiff<=60).length, clr:'var(--yel)' },
-    { k:'ppad-14',  lbl:'PPAD D-14',    n: rows.filter(r=>r.isPpad14).length,                                 clr:'var(--mag)' },
-    { k:'plenty',   lbl:'여유있음',     n: rows.filter(r=>r.gacDiff!=null&&r.gacDiff>60).length,             clr:'var(--blu)' },
+    { k:'all',      lbl:'전체',          n: rows.length,                                                                      clr:'var(--t1)' },
+    { k:'fad-14',   lbl:'FAD D-14',      n: rows.filter(r=>!r.fitOk&&r.fadDd!=null&&r.fadDd>=0&&r.fadDd<=14).length,          clr:'var(--red)' },
+    { k:'ppad-14',  lbl:'PPAD D-14',     n: rows.filter(r=>r.ppadDd!=null&&r.ppadDd>=0&&r.ppadDd<=14).length,                 clr:'var(--ora)' },
+    { k:'trim-14',  lbl:'TRIM DUE-14',   n: rows.filter(r=>!r.trimOk&&r.trimDd!=null&&r.trimDd>=0&&r.trimDd<=14).length,      clr:'var(--yel)' },
+    { k:'cut-14',   lbl:'CUT DATE-14',   n: rows.filter(r=>r.cutDd!=null&&r.cutDd>=0&&r.cutDd<=14).length,                    clr:'var(--mag)' },
+    { k:'plenty',   lbl:'여유있음',      n: rows.filter(r=>r.gacDiff!=null&&r.gacDiff>60).length,                              clr:'var(--blu)' },
   ];
   document.getElementById('stats').innerHTML = cards.map(c =>
     `<div class="stat-card" id="sc-${c.k}" style="color:${c.clr}" onclick="toggleStat('${c.k}')">
@@ -629,23 +681,42 @@ function renderTable() {
   let rows = [...S.rows];
 
   if (S.tab !== 'all')    rows = rows.filter(r => r.sheet === S.tab);
+  if (S.searchQ) {
+    const q = S.searchQ.toLowerCase();
+    rows = rows.filter(r => r.style.toLowerCase().includes(q) || r.desc.toLowerCase().includes(q));
+  }
   if (S.alertF)           rows = rows.filter(r => r.alert === S.alertF);
   if (S.statF) {
     switch(S.statF) {
-      case 'cut-over': rows = rows.filter(r=>r.gacDiff!=null&&r.gacDiff<0); break;
-      case 'cut-30':   rows = rows.filter(r=>r.gacDiff!=null&&r.gacDiff>=0&&r.gacDiff<=30); break;
-      case 'cut-60':   rows = rows.filter(r=>r.gacDiff!=null&&r.gacDiff>30&&r.gacDiff<=60); break;
-      case 'ppad-14':  rows = rows.filter(r=>r.isPpad14); break;
+      case 'fad-14':   rows = rows.filter(r=>!r.fitOk&&r.fadDd!=null&&r.fadDd>=0&&r.fadDd<=14); break;
+      case 'ppad-14':  rows = rows.filter(r=>r.ppadDd!=null&&r.ppadDd>=0&&r.ppadDd<=14); break;
+      case 'trim-14':  rows = rows.filter(r=>!r.trimOk&&r.trimDd!=null&&r.trimDd>=0&&r.trimDd<=14); break;
+      case 'cut-14':   rows = rows.filter(r=>r.cutDd!=null&&r.cutDd>=0&&r.cutDd<=14); break;
       case 'plenty':   rows = rows.filter(r=>r.gacDiff!=null&&r.gacDiff>60); break;
     }
   }
 
-  const ord = { block:0, urgent:1, trimwarn:2, fitno:3 };
-  rows.sort((a,b) => {
-    const ao = ord[a.alert] ?? 4, bo = ord[b.alert] ?? 4;
-    if (ao !== bo) return ao - bo;
-    return (a.gacDiff ?? 9999) - (b.gacDiff ?? 9999);
-  });
+  if (S.sortCol) {
+    const col = S.sortCol, asc = S.sortAsc;
+    rows.sort((a, b) => {
+      let va = a[col], vb = b[col];
+      if (va instanceof Date && vb instanceof Date) return asc ? va - vb : vb - va;
+      if (va instanceof Date) va = va.getTime(); if (vb instanceof Date) vb = vb.getTime();
+      if (va == null && vb == null) return 0;
+      if (va == null) return 1;
+      if (vb == null) return -1;
+      if (typeof va === 'string') return asc ? va.localeCompare(vb) : vb.localeCompare(va);
+      return asc ? va - vb : vb - va;
+    });
+  } else {
+    const ord = { block:0, urgent:1, trimwarn:2, fitno:3 };
+    rows.sort((a,b) => {
+      const ao = ord[a.alert] ?? 4, bo = ord[b.alert] ?? 4;
+      if (ao !== bo) return ao - bo;
+      return (a.gacDiff ?? 9999) - (b.gacDiff ?? 9999);
+    });
+  }
+  updateSortArrows();
 
   const tbody = document.getElementById('tbody');
   const empty = document.getElementById('empty-state');
@@ -664,12 +735,12 @@ function renderTable() {
         <td>${r.sizeCodes.length ? r.sizeCodes.map(c => `<span class="entity-tag sz-${c.toLowerCase()}">${c}</span>`).join(' ') : '<span class="entity-tag">-</span>'}</td>
         <td>
           <div class="dt-main">${fmt(r.cutDate)}</div>
-          <div class="dt-sub">${cutDayBadge(r.cutDd)}</div>
+          <div class="dt-sub">${cutDayBadge(r.cutDd)}<span style="color:var(--t3);font-size:9px;margin-left:4px">GAC 마감</span></div>
         </td>
         <td>
           <div class="dt-main">${fmt(r.fadDate)}</div>
-          <div class="dt-sub">${dBadge(r.fadDd)}</div>
-          <div style="margin-top:3px">${r.fitOk ? '<span class="fit-ok">✓ 승인</span>' : '<span class="fit-no">✗ 미승인</span>'}</div>
+          <div class="dt-sub">${r.fitOk ? '' : dBadge(r.fadDd, r.fitOk)}</div>
+          <div style="margin-top:3px">${r.fitOk ? '<span class="fit-ok">✓ 승인</span>' : '<span style="font-size:11px;color:var(--red);font-weight:600">✗ 미승인</span>'}</div>
         </td>
         <td>
           <div class="dt-main">${fmt(r.ppadDate)}</div>
@@ -677,8 +748,10 @@ function renderTable() {
         </td>
         <td>
           <div class="dt-main">${fmt(r.trimDate)}</div>
-          <div class="dt-sub">${dBadge(r.trimDd)}</div>
-          ${r.trimOk ? '<div style="color:var(--grn);font-size:11px;margin-top:2px">✓ 완료</div>' : ''}
+          ${r.trimOk
+            ? '<div style="color:var(--grn);font-size:11px;margin-top:3px;font-weight:500">✓ 완료</div>'
+            : `<div class="dt-sub">${dBadge(r.trimDd)}</div>
+               <div style="margin-top:3px"><span style="display:inline-flex;align-items:center;gap:3px;font-size:11px;color:var(--red);font-weight:600">✗ 미완료</span></div>`}
         </td>
       </tr>`;
     }).join('');
@@ -692,10 +765,14 @@ function renderTable() {
 }
 
 // ─── FILE HANDLING ────────────────────────────────────────────────────────────
+function showSpinner() { document.getElementById('spinner').classList.add('visible'); }
+function hideSpinner() { document.getElementById('spinner').classList.remove('visible'); }
+
 function handleFile(file) {
   if (!file) return;
   if (!/\.(xlsx|xls)$/i.test(file.name)) { toast('지원하지 않는 파일 형식입니다. .xlsx 또는 .xls 파일을 업로드하세요.'); return; }
 
+  showSpinner();
   const reader = new FileReader();
   reader.onload = e => {
     try {
@@ -704,24 +781,30 @@ function handleFile(file) {
       for (const sn of wb.SheetNames) {
         S.rows.push(...parseSheet(wb.Sheets[sn], sn));
       }
-      if (!S.rows.length) { toast('파싱된 데이터가 없습니다. Brand Moment 헤더를 확인하세요.'); return; }
+      if (!S.rows.length) { hideSpinner(); toast('파싱된 데이터가 없습니다. Brand Moment 헤더를 확인하세요.'); return; }
 
       document.getElementById('upload-zone').style.display = 'none';
       document.getElementById('dashboard').style.display = 'block';
       document.getElementById('btn-reup').classList.add('visible');
+      document.getElementById('btn-print').classList.add('visible');
+      document.getElementById('btn-csv').classList.add('visible');
       document.getElementById('fname').textContent = file.name;
 
-      S.tab = 'all'; S.alertF = null; S.statF = null;
+      S.tab = 'all'; S.alertF = null; S.statF = null; S.searchQ = ''; S.sortCol = null; S.sortAsc = true;
       renderTnaBar(S.rows);
       renderStats(S.rows);
       renderTabs();
       renderTable();
+      hideSpinner();
+      saveSession(file.name);
       toast(`${S.rows.length}개 스타일 로드 완료`, true);
     } catch(err) {
+      hideSpinner();
       console.error(err);
       toast(`파싱 오류: ${err.message}`);
     }
   };
+  reader.onerror = () => { hideSpinner(); toast('파일 읽기 오류가 발생했습니다.'); };
   reader.readAsBinaryString(file);
 }
 
@@ -729,14 +812,37 @@ function resetUpload() {
   document.getElementById('upload-zone').style.display = 'flex';
   document.getElementById('dashboard').style.display = 'none';
   document.getElementById('btn-reup').classList.remove('visible');
+  document.getElementById('btn-print').classList.remove('visible');
+  document.getElementById('btn-csv').classList.remove('visible');
   document.getElementById('fname').textContent = '';
   document.getElementById('file-input').value = '';
-  S.rows = [];
+  document.getElementById('search-input').value = '';
+  S.rows = []; S.searchQ = ''; S.sortCol = null; S.sortAsc = true;
+  clearSession();
 }
 
 // ─── INTERACTIONS ─────────────────────────────────────────────────────────────
+function toggleSort(col) {
+  if (S.sortCol === col) { S.sortAsc = !S.sortAsc; }
+  else { S.sortCol = col; S.sortAsc = true; }
+  renderTable();
+}
+function updateSortArrows() {
+  const cols = ['style','cutDate','fadDate','ppadDate','trimDate'];
+  for (const c of cols) {
+    const el = document.getElementById('sa-' + c);
+    const th = el?.parentElement;
+    if (!el || !th) continue;
+    if (S.sortCol === c) { el.textContent = S.sortAsc ? ' ▲' : ' ▼'; th.classList.add('sorted'); }
+    else { el.textContent = ''; th.classList.remove('sorted'); }
+  }
+}
+
+function onSearch(v) { S.searchQ = v.trim(); renderTable(); }
+
 function setTab(t) {
-  S.tab = t; S.alertF = null; S.statF = null;
+  S.tab = t; S.alertF = null; S.statF = null; S.searchQ = ''; S.sortCol = null; S.sortAsc = true;
+  document.getElementById('search-input').value = '';
   document.querySelectorAll('.chip').forEach(c => c.className = 'chip');
   document.querySelectorAll('.stat-card').forEach(c => c.classList.remove('on'));
   renderTabs(); renderTable();
@@ -782,6 +888,43 @@ function togglePA() {
   document.getElementById('pa-arr').textContent = b.classList.contains('open') ? '▼' : '▶';
 }
 
+// ─── CSV EXPORT ───────────────────────────────────────────────────────────────
+function csvEsc(v) { const s = String(v ?? ''); return s.includes(',') || s.includes('"') || s.includes('\n') ? '"' + s.replace(/"/g, '""') + '"' : s; }
+function fmtISO(d) { if (!d) return ''; return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+
+function exportCSV() {
+  let rows = [...S.rows];
+  if (S.tab !== 'all') rows = rows.filter(r => r.sheet === S.tab);
+  if (S.searchQ) { const q = S.searchQ.toLowerCase(); rows = rows.filter(r => r.style.toLowerCase().includes(q) || r.desc.toLowerCase().includes(q)); }
+  if (S.alertF) rows = rows.filter(r => r.alert === S.alertF);
+  if (S.statF) {
+    switch(S.statF) {
+      case 'fad-14':   rows = rows.filter(r=>!r.fitOk&&r.fadDd!=null&&r.fadDd>=0&&r.fadDd<=14); break;
+      case 'ppad-14':  rows = rows.filter(r=>r.ppadDd!=null&&r.ppadDd>=0&&r.ppadDd<=14); break;
+      case 'trim-14':  rows = rows.filter(r=>!r.trimOk&&r.trimDd!=null&&r.trimDd>=0&&r.trimDd<=14); break;
+      case 'cut-14':   rows = rows.filter(r=>r.cutDd!=null&&r.cutDd>=0&&r.cutDd<=14); break;
+      case 'plenty':   rows = rows.filter(r=>r.gacDiff!=null&&r.gacDiff>60); break;
+    }
+  }
+  const header = ['Alert','Style','Description','Entity','Plan Cut Date','FAD','Fit Status','PPAD','Trim Due','GAC'];
+  const csv = [header.map(csvEsc).join(',')];
+  for (const r of rows) {
+    csv.push([
+      csvEsc(r.alert || ''), csvEsc(r.style), csvEsc(r.desc), csvEsc(r.sizeCodes.join(' ')),
+      csvEsc(fmtISO(r.cutDate)), csvEsc(fmtISO(r.fadDate)), csvEsc(r.fitOk ? 'Approved' : 'Not Approved'),
+      csvEsc(fmtISO(r.ppadDate)), csvEsc(fmtISO(r.trimDate)), csvEsc(fmtISO(r.gacDate))
+    ].join(','));
+  }
+  const bom = '\uFEFF';
+  const blob = new Blob([bom + csv.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'wip_deadline_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast(`${rows.length}건 CSV 내보내기 완료`, true);
+}
+
 // ─── TOAST ────────────────────────────────────────────────────────────────────
 function toast(msg, ok = false) {
   const c = document.getElementById('toasts');
@@ -801,6 +944,57 @@ function toast(msg, ok = false) {
   const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
   document.getElementById('today-date').textContent = `${y}.${m}.${day} (${weekdays[d.getDay()]})`;
 })();
+
+// ─── SESSION PERSISTENCE ──────────────────────────────────────────────────
+const WIP_KEY = 'wip_checker_data';
+
+function saveSession(fname) {
+  try {
+    const data = { fname, rows: S.rows.map(r => ({
+      ...r,
+      ihDate: r.ihDate?.toISOString() || null,
+      fadDate: r.fadDate?.toISOString() || null,
+      ppadDate: r.ppadDate?.toISOString() || null,
+      trimDate: r.trimDate?.toISOString() || null,
+      gacDate: r.gacDate?.toISOString() || null,
+      cutDate: r.cutDate?.toISOString() || null,
+    }))};
+    localStorage.setItem(WIP_KEY, JSON.stringify(data));
+    sessionStorage.setItem('wip_active', '1');
+  } catch(e) { console.warn('세션 저장 실패:', e); }
+}
+
+function clearSession() { try { localStorage.removeItem(WIP_KEY); sessionStorage.removeItem('wip_active'); } catch(e) {} }
+
+function restoreSession() {
+  try {
+    // sessionStorage 플래그가 없으면 새로 연 것 → 업로드 화면
+    if (!sessionStorage.getItem('wip_active')) return false;
+    const raw = localStorage.getItem(WIP_KEY);
+    if (!raw) return false;
+    const data = JSON.parse(raw);
+    const dateFields = ['ihDate','fadDate','ppadDate','trimDate','gacDate','cutDate'];
+    S.rows = data.rows.map(r => {
+      for (const f of dateFields) { r[f] = r[f] ? new Date(r[f]) : null; }
+      return r;
+    });
+    if (!S.rows.length) return false;
+    document.getElementById('upload-zone').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
+    document.getElementById('btn-reup').classList.add('visible');
+    document.getElementById('btn-print').classList.add('visible');
+    document.getElementById('btn-csv').classList.add('visible');
+    document.getElementById('fname').textContent = data.fname || '';
+    S.tab = 'all'; S.alertF = null; S.statF = null; S.searchQ = ''; S.sortCol = null; S.sortAsc = true;
+    renderTnaBar(S.rows);
+    renderStats(S.rows);
+    renderTabs();
+    renderTable();
+    return true;
+  } catch(e) { console.warn('세션 복원 실패:', e); clearSession(); return false; }
+}
+
+restoreSession();
 
 // ─── DRAG & DROP ──────────────────────────────────────────────────────────────
 const box = document.getElementById('upload-box');
