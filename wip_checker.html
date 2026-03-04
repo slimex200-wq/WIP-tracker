@@ -318,12 +318,12 @@
 
 <!-- UPLOAD ZONE -->
 <div id="upload-zone">
-  <div class="upload-box" id="upload-box" onclick="document.getElementById('file-input').click()">
+  <div class="upload-box" id="upload-box" onclick="pickFile()">
     <div class="upload-icon">📊</div>
     <div class="upload-title">엑셀 파일 업로드</div>
     <div class="upload-hint">.xlsx / .xls 지원<br>클릭하거나 드래그해서 올려주세요</div>
   </div>
-  <input type="file" id="file-input" accept=".xlsx,.xls" onchange="handleFile(this.files[0])">
+  <input type="file" id="file-input" accept=".xlsx,.xls" onchange="onFileSelected(this.files[0])">
 </div>
 
 <!-- DASHBOARD -->
@@ -768,6 +768,41 @@ function renderTable() {
 function showSpinner() { document.getElementById('spinner').classList.add('visible'); }
 function hideSpinner() { document.getElementById('spinner').classList.remove('visible'); }
 
+// ─── 서버 연동 (알림 스케줄러) ────────────────────────────────────────────
+let _lastFilePath = null;
+const _isServer = location.protocol === 'http:' || location.protocol === 'https:';
+
+function pickFile() {
+  document.getElementById('file-input').click();
+}
+
+function onFileSelected(file) {
+  if (!file) return;
+  // 서버 모드: 파일 업로드해서 경로 받은 후 알림 연동
+  if (_isServer) {
+    const fd = new FormData();
+    fd.append('file', file);
+    fetch('/api/upload', { method: 'POST', body: fd })
+      .then(r => r.json())
+      .then(d => {
+        if (d.ok) { _lastFilePath = d.path; startNotifier(); }
+      })
+      .catch(() => {});
+  }
+  handleFile(file);
+}
+
+function startNotifier() {
+  if (!_isServer || !_lastFilePath) return;
+  fetch('/api/start-notifier', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path: _lastFilePath })
+  }).then(r => r.json()).then(d => {
+    if (d.ok) toast('Windows 알림 스케줄러 시작됨 ✓', true);
+  }).catch(() => {});
+}
+
 function handleFile(file) {
   if (!file) return;
   if (!/\.(xlsx|xls)$/i.test(file.name)) { toast('지원하지 않는 파일 형식입니다. .xlsx 또는 .xls 파일을 업로드하세요.'); return; }
@@ -1002,7 +1037,7 @@ box.addEventListener('dragover',  e => { e.preventDefault(); box.classList.add('
 box.addEventListener('dragleave', ()  => box.classList.remove('drag-over'));
 box.addEventListener('drop', e => {
   e.preventDefault(); box.classList.remove('drag-over');
-  handleFile(e.dataTransfer.files[0]);
+  onFileSelected(e.dataTransfer.files[0]);
 });
 </script>
 </body>

@@ -15,7 +15,7 @@ import openpyxl
 from plyer import notification
 
 try:
-    from windows_toasts import InteractableWindowsToaster, Toast, ToastDisplayImage, ToastImagePosition
+    from windows_toasts import InteractableWindowsToaster, Toast, ToastDisplayImage, ToastImagePosition, ToastDuration
     _toaster = InteractableWindowsToaster("WIP Deadline Checker")
     _USE_WIN_TOAST = True
 except Exception:
@@ -31,15 +31,41 @@ COL_DESC   = "Description"
 COL_FIT_DL = "Fit Approval"   # → "Fit Approval deadline"
 COL_PPS_DL = "PPS Approval"   # → "PPS Approval Deadline"
 
-# Fit Status에 아래 키워드 포함 시 승인 완료 → 알람 없음
+# Fit Status 승인 키워드 (HTML 앱과 동일)
 FIT_APPROVED_KW = [
-    "approved", "proceed to bulk", "proceed to pps",
-    "submit pps", "go to pps", "to pps", "same silo",
+    "approved", "approval", "c/o", "fixed", "complete", "done",
+    "proceed to bulk", "proceed to pps", "submit pps",
+    "go to pps", "to pps", "same silo",
 ]
+
+ALERT_LABELS = {
+    "block":  "🚫 PP 진행 불가",
+    "urgent": "🔥 긴급",
+}
 
 def is_fit_approved(text):
     if not text: return False
     return any(k in str(text).lower() for k in FIT_APPROVED_KW)
+
+def ddMD(d):
+    """HTML 앱과 동일한 D-day 계산 (연도 무시, 월/일 기준)"""
+    if not d: return None
+    today = date.today()
+    t = date(today.year, d.month, d.day)
+    return (t - today).days
+
+def classify_alert(fitOk, trimOk, fadDd, ppadDd):
+    """HTML 앱과 동일한 4단계 경보 판단"""
+    isUrgentFad  = not fitOk and fadDd is not None and 0 <= fadDd <= 14
+    isUrgentPpad = ppadDd is not None and 0 <= ppadDd <= 14
+    isTrimBlock  = not trimOk and ppadDd is not None and 0 <= ppadDd <= 14
+
+    if not fitOk and fadDd is not None and fadDd < 0:       return "block"
+    if isTrimBlock:                                          return "block"
+    if isUrgentFad or isUrgentPpad:                          return "urgent"
+    if not trimOk and ppadDd is not None and ppadDd <= 30:   return "trimwarn"
+    if not fitOk and fadDd is not None and 0 <= fadDd <= 30: return "fitno"
+    return None
 
 
 # ── 설정 저장/불러오기 ──────────────────────────────────────
@@ -80,6 +106,7 @@ def find_col(headers, name):
 # ── 엑셀 데이터 읽기 ────────────────────────────────────────
 
 def read_wip_data(excel_path):
+    """HTML 앱과 동일한 파싱 로직 — block/urgent 경보 스타일 반환"""
     if not excel_path or not os.path.exists(excel_path): return []
     try:
         wb = openpyxl.load_workbook(excel_path, read_only=True, data_only=True)
@@ -87,60 +114,67 @@ def read_wip_data(excel_path):
         print(f"[오류] 엑셀 열기 실패: {e}"); return []
 
     items = []
-    today = date.today()
 
     for sheet in wb.worksheets:
         rows = list(sheet.iter_rows(values_only=True))
         if len(rows) < 2: continue
 
+        # Brand Moment 헤더 행 찾기 (HTML 앱과 동일)
         header_row, header_idx = None, 0
-        for i, row in enumerate(rows[:5]):
-            rs = [str(c).upper() if c else "" for c in row]
-            if any("FIT APPROVAL" in c or "PPS APPROVAL" in c for c in rs):
-                header_row = [str(c).strip() if c else "" for c in row]
-                header_idx = i; break
+        for i, row in enumerate(rows[:10]):
+            if not row: continue
+            for c in range(3):
+                if c < len(row) and row[c] and str(row[c]).strip().lower() == "brand moment":
+                    header_row = [str(cell).strip() if cell else "" for cell in row]
+                    header_idx = i; break
+            if header_row: break
         if header_row is None: continue
 
-        style_col  = find_col(header_row, COL_STYLE)
-        desc_col   = find_col(header_row, COL_DESC)
-        fit_dl_col = find_col(header_row, COL_FIT_DL)
-        pps_dl_col = find_col(header_row, COL_PPS_DL)
-
-        # "Status" 컬럼: Fit Approval deadline 바로 뒤
-        fit_status_col = None
-        if fit_dl_col is not None:
-            for i in range(fit_dl_col + 1, len(header_row)):
-                if header_row[i].lower() == "status":
-                    fit_status_col = i; break
+        # 컬럼 매칭 (HTML 앱과 동일)
+        fad_col  = find_col(header_row, "fit approval")
+        fst_col  = find_col(header_row, "status")  # exact match
+        if fst_col is not None and header_row[fst_col].lower() != "status":
+            fst_col = None
+        ppad_col = find_col(header_row, "pps approval")
+        trim_col = find_col(header_row, "trim app")
 
         for row in rows[header_idx + 1:]:
-            if not any(row): continue
+            if not row or not any(row): continue
             def get(col): return row[col] if col is not None and col < len(row) else None
 
-            style = str(get(style_col) or "").strip()
-            desc  = str(get(desc_col)  or "").strip()
+            style = str(get(1) or "").strip()  # 인덱스 1 고정
+            desc  = str(get(2) or "").strip()  # 인덱스 2 고정
             if not style: continue
 
-            # Fit Approval deadline — 미승인만
-            fit_dl = parse_date(get(fit_dl_col))
-            if fit_dl:
-                fit_status = str(get(fit_status_col) or "").strip()
-                if not is_fit_approved(fit_status):
-                    items.append({
-                        "style": style, "desc": desc,
-                        "sheet": sheet.title, "type": "FIT",
-                        "date": fit_dl, "diff": (fit_dl - today).days,
-                        "status": fit_status,
-                    })
+            fadDate  = parse_date(get(fad_col))
+            ppadDate = parse_date(get(ppad_col))
+            trimDate = parse_date(get(trim_col))
+            fadSt    = str(get(fst_col) or "").strip() if fst_col else ""
 
-            # PPS Approval Deadline
-            pps_dl = parse_date(get(pps_dl_col))
-            if pps_dl:
+            fadDd  = ddMD(fadDate)
+            ppadDd = ddMD(ppadDate)
+
+            fitOk  = is_fit_approved(fadSt)
+            trimOk = False  # openpyxl read_only에서 gray shade 감지 불가 → 미완료로 간주
+
+            alert = classify_alert(fitOk, trimOk, fadDd, ppadDd)
+
+            if alert in ("block", "urgent"):
+                # 가장 급한 날짜 선택
+                urgent_date = None
+                urgent_type = ""
+                if not fitOk and fadDd is not None and fadDd <= 14:
+                    urgent_date = fadDate; urgent_type = "FAD"
+                if ppadDd is not None and ppadDd <= 14:
+                    if urgent_date is None or (ppadDate and ppadDate < urgent_date):
+                        urgent_date = ppadDate; urgent_type = "PPAD"
+
                 items.append({
                     "style": style, "desc": desc,
-                    "sheet": sheet.title, "type": "PPS",
-                    "date": pps_dl, "diff": (pps_dl - today).days,
-                    "status": "",
+                    "sheet": sheet.title, "alert": alert,
+                    "type": urgent_type,
+                    "date": urgent_date,
+                    "diff": ddMD(urgent_date) if urgent_date else 0,
                 })
 
     wb.close()
@@ -246,7 +280,7 @@ def extract_style_images(excel_path):
 def send_notification(title, message, image_path=None, timeout=8):
     if _USE_WIN_TOAST:
         try:
-            toast = Toast(text_fields=[title, message])
+            toast = Toast(text_fields=[title, message], duration=ToastDuration.Long)
             if image_path and os.path.exists(image_path):
                 toast.AddImage(ToastDisplayImage.fromPath(
                     image_path, position=ToastImagePosition.Hero))
@@ -266,24 +300,25 @@ def send_notification(title, message, image_path=None, timeout=8):
 
 def morning_summary(cfg):
     items = read_wip_data(cfg.get("excel_path", ""))
-    if not items:
-        send_notification("WIP Checker", "엑셀 파일을 읽을 수 없습니다."); return
+    today = date.today()
 
-    today    = date.today()
-    overdue  = [i for i in items if i["diff"] < 0]
-    today_dl = [i for i in items if i["diff"] == 0]
-    d7       = [i for i in items if 0 < i["diff"] <= 7]
-    d14      = [i for i in items if 7 < i["diff"] <= 14]
+    blocks  = [i for i in items if i["alert"] == "block"]
+    urgents = [i for i in items if i["alert"] == "urgent"]
 
-    lines = [f"{today.strftime('%m/%d')} 마감 현황"]
-    if overdue:  lines.append(f"기한 초과: {len(overdue)}건")
-    if today_dl: lines.append(f"오늘 마감: {len(today_dl)}건")
-    if d7:       lines.append(f"D-7 이내: {len(d7)}건")
-    if d14:      lines.append(f"D-14 이내: {len(d14)}건")
-    if len(lines) == 1: lines.append("임박한 마감 없음")
+    lines = [f"{today.strftime('%m/%d')} WIP 긴급 현황"]
+    if blocks:  lines.append(f"🚫 PP 진행 불가: {len(blocks)}건")
+    if urgents: lines.append(f"🔥 긴급: {len(urgents)}건")
+    if not blocks and not urgents:
+        lines.append("긴급 항목 없음 ✓")
 
-    send_notification("WIP 마감 현황 요약", "\n".join(lines))
-    print(f"[{datetime.now().strftime('%H:%M')}] 아침 요약 전송")
+    # 상위 3건 스타일 표시
+    top = (blocks + urgents)[:3]
+    for i in top:
+        d = i["diff"]
+        lines.append(f"  {i['style']} [{i['type']}] D{'+' if d < 0 else '-'}{abs(d)}")
+
+    send_notification("WIP 긴급 현황 요약", "\n".join(lines))
+    print(f"[{datetime.now().strftime('%H:%M')}] 아침 요약 전송 (block:{len(blocks)} urgent:{len(urgents)})")
 
 
 # ── D-day 알림 체크 ────────────────────────────────────────
@@ -293,24 +328,36 @@ def check_deadline_alerts(cfg):
     items = read_wip_data(excel_path)
     if not items: return
 
-    style_images = extract_style_images(excel_path)
-
     today_str = date.today().isoformat()
     notified  = cfg.get("notified_days", {})
 
-    for item in items:
-        if item["diff"] > ALERT_THRESHOLD: continue
-        key = f"{item['style']}_{item['type']}_{item['diff']}_{today_str}"
-        if key in notified: continue
+    # 이미 오늘 알림 보냈으면 스킵
+    if notified.get(f"_summary_{today_str}"): return
 
-        d     = item["diff"]
-        title = f"D-{d} | {item['style']}"
-        msg   = f"[{item['type']}] 마감: {item['date'].strftime('%m/%d')}  [{item['sheet']}]"
-        if item.get("status"): msg += f"\n{item['status'][:50]}"
+    blocks  = [i for i in items if i["alert"] == "block"]
+    urgents = [i for i in items if i["alert"] == "urgent"]
 
-        send_notification(title, msg, image_path=style_images.get(item['style']))
-        notified[key] = True
-        print(f"[{datetime.now().strftime('%H:%M')}] D-{d} 알림: {item['style']} {item['type']}")
+    # 요약 1건으로 통합 알림
+    lines = []
+    if blocks:  lines.append(f"🚫 PP 진행 불가: {len(blocks)}건")
+    if urgents: lines.append(f"🔥 긴급: {len(urgents)}건")
+
+    # 가장 급한 상위 5건 표시
+    top = sorted(blocks + urgents, key=lambda i: i["diff"] or 0)[:5]
+    for i in top:
+        d = i["diff"]
+        dtxt = f"D{'+' if d < 0 else '-'}{abs(d)}" if d is not None else ""
+        lines.append(f"  {i['style']} [{i['type']}] {dtxt}")
+
+    if len(items) > 5:
+        lines.append(f"  ...외 {len(items) - 5}건")
+
+    send_notification(
+        f"WIP 긴급 {len(blocks) + len(urgents)}건",
+        "\n".join(lines)
+    )
+    notified[f"_summary_{today_str}"] = True
+    print(f"[{datetime.now().strftime('%H:%M')}] 긴급 요약 알림 전송 (block:{len(blocks)} urgent:{len(urgents)})")
 
     cutoff = (date.today() - timedelta(days=30)).isoformat()
     cfg["notified_days"] = {k: v for k, v in notified.items() if k.split("_")[-1] >= cutoff}
